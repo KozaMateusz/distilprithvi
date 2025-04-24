@@ -3,4 +3,3 @@ venv/
 datasets
 mlruns
 lightning_logs
-teachers
