@@ -1,5 +1,6 @@
 venv/
-.vscode
-datasets
-mlruns
-lightning_logs
+.vscode/
+mlruns/
+lightning_logs/
+datasets/
+teachers/

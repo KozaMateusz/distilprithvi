@@ -2,8 +2,8 @@
 
 Knowledge distillation of geospatial foundation models.
 
-## Datasets
-Datasets can be obtained from this [link](https://drive.google.com/drive/folders/1-NI4_f1PgrEaV58hINTJXlvWAyXiOOzY?usp=drive_link). Unpack them in the datasets folder.
+## Datasets & Teachers
+Datasets and teachers can be obtained on [huggingface](https://huggingface.co/collections/KozaMateusz/distil-prithvi-680ca48149d5d8a9ad3d25e3).
 
 ## TODO
 * self.aug is used probably only for inference as dataloader should apply everything when training
