@@ -4,3 +4,5 @@ mlruns/
 lightning_logs/
 datasets/
 teachers/
+
+**/__pycache__/
