@@ -8,7 +8,7 @@ class SemanticSegmentationDistiller(L.LightningModule):
         self,
         teacher,
         student,
-        kd_weight=0.5,
+        kd_weight=0.75,
         kd_temperature=2.0,
     ):
         super().__init__()
@@ -40,12 +40,26 @@ class SemanticSegmentationDistiller(L.LightningModule):
                 torch.log_softmax(y_hat_s / self.kd_temperature, dim=1),
                 torch.softmax(y_hat_t / self.kd_temperature, dim=1),
             ) * (self.kd_temperature**2)
-            self.log("train/loss_target", loss_target, on_epoch=True, on_step=False)
-            self.log("train/loss_kd", loss_kd, on_epoch=True, on_step=False)
+            self.log(
+                "train/loss_target",
+                loss_target,
+                on_epoch=True,
+                on_step=False,
+                batch_size=x.shape[0],
+            )
+            self.log(
+                "train/loss_kd",
+                loss_kd,
+                on_epoch=True,
+                on_step=False,
+                batch_size=x.shape[0],
+            )
 
             loss = self.kd_weight * loss_kd + (1 - self.kd_weight) * loss_target
 
-        self.log("train/loss", loss, on_epoch=True, on_step=False)
+        self.log(
+            "train/loss", loss, on_epoch=True, on_step=False, batch_size=x.shape[0]
+        )
         self.teacher.train_metrics.update(y_hat_s.argmax(dim=1), y)
         return loss
 
@@ -55,7 +69,7 @@ class SemanticSegmentationDistiller(L.LightningModule):
         y_hat_s = self(x)
         loss = self.teacher.criterion(y_hat_s, y)
         self.teacher.val_metrics.update(y_hat_s.argmax(dim=1), y)
-        self.log("val/loss", loss, on_epoch=True, on_step=False)
+        self.log("val/loss", loss, on_epoch=True, on_step=False, batch_size=x.shape[0])
 
     def test_step(self, batch):
         x = batch["image"]
@@ -63,7 +77,7 @@ class SemanticSegmentationDistiller(L.LightningModule):
         y_hat_s = self(x)
         loss = self.teacher.criterion(y_hat_s, y)
         self.teacher.test_metrics[0].update(y_hat_s.argmax(dim=1), y)
-        self.log("test/loss", loss, on_epoch=True, on_step=False)
+        self.log("test/loss", loss, on_epoch=True, on_step=False, batch_size=x.shape[0])
 
     def on_train_epoch_end(self):
         metrics = self.teacher.train_metrics.compute()
