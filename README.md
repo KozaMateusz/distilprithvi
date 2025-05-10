@@ -22,4 +22,5 @@ python distilprithvi.py \
 ## TODO
 * Fix: The ``compute`` method of metric MulticlassJaccardIndex was called before the ``update``
 * check the floods dataset
-* inference the teacher model once on the whole dataset, obtain logits and cache them for distillation
+* test distillation with 600M prithvi models (trained by us??)
+* add learning rate scheduler
