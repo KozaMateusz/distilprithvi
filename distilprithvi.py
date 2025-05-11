@@ -81,16 +81,12 @@ def main():
     datamodule = inference_model.datamodule
     datamodule.batch_size = args.batch_size
 
+    num_channels = len(teacher.hparams.model_args["backbone_bands"])
+    num_classes = teacher.hparams.model_args["num_classes"]
     if args.student_model == "deeplabv3":
-        student = DeepLabV3MobileNetV3Large(
-            num_channels=len(datamodule.output_bands),
-            num_classes=datamodule.num_classes,
-        )
+        student = DeepLabV3MobileNetV3Large(num_channels, num_classes)
     elif args.student_model == "lraspp":
-        student = LRASPPMobileNetV3Large(
-            num_channels=len(datamodule.output_bands),
-            num_classes=datamodule.num_classes,
-        )
+        student = LRASPPMobileNetV3Large(num_channels, num_classes)
 
     distiller = SemanticSegmentationDistiller(
         teacher=teacher,
