@@ -28,8 +28,8 @@ python distilprithvi.py \
     --student-model lraspp \
     --batch-size 16 \
     --num-epochs 50 \
-    --experiment-name hls_burn_scars_distillation \
-    --run-name hls_burn_scars_distillation_run \
+    --experiment-name sen1floods11_distillation \
+    --run-name sen1floods11_run \
     --kd-temperature 2.0 \
     --kd-weight 0.75
 ```
