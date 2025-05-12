@@ -35,7 +35,7 @@ python distilprithvi.py \
 ```
 
 ## TODO
+* Add passing the TL metadata to the teacher (to make the sen1floods11 performance better)
 * Fix: The ``compute`` method of metric MulticlassJaccardIndex was called before the ``update``
-* check the floods dataset
-* test distillation with 600M prithvi models (trained by us??)
 * add learning rate scheduler
+* test distillation with 600M prithvi models (trained by us??)

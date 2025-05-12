@@ -26,7 +26,7 @@ class SemanticSegmentationDistiller(L.LightningModule):
 
     def training_step(self, batch):
         x = batch["image"]
-        y = batch["mask"]
+        y = batch["mask"].squeeze(1)
 
         y_hat_s = self(x)
         loss_target = self.teacher.criterion(y_hat_s, y)
@@ -65,7 +65,7 @@ class SemanticSegmentationDistiller(L.LightningModule):
 
     def validation_step(self, batch):
         x = batch["image"]
-        y = batch["mask"]
+        y = batch["mask"].squeeze(1)
         y_hat_s = self(x)
         loss = self.teacher.criterion(y_hat_s, y)
         self.teacher.val_metrics.update(y_hat_s.argmax(dim=1), y)
@@ -73,7 +73,7 @@ class SemanticSegmentationDistiller(L.LightningModule):
 
     def test_step(self, batch):
         x = batch["image"]
-        y = batch["mask"]
+        y = batch["mask"].squeeze(1)
         y_hat_s = self(x)
         loss = self.teacher.criterion(y_hat_s, y)
         self.teacher.test_metrics[0].update(y_hat_s.argmax(dim=1), y)
