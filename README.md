@@ -35,7 +35,6 @@ python distilprithvi.py \
 ```
 
 ## TODO
-* Add passing the TL metadata to the teacher (to make the sen1floods11 performance better)
-* Fix: The ``compute`` method of metric MulticlassJaccardIndex was called before the ``update``
-* add learning rate scheduler
+* Fix: Why is the performance worse when using distillation on sen1floods11??
+* Fix: The ``compute`` method of metric MulticlassJaccardIndex was called before the ``update`` (Seems to be a torchmetrics bug)
 * test distillation with 600M prithvi models (trained by us??)

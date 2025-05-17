@@ -34,8 +34,10 @@ class SemanticSegmentationDistiller(L.LightningModule):
         if self.kd_weight == 0:
             loss = loss_target
         else:
+            other_keys = batch.keys() - {"image", "mask", "filename"}
+            rest = {k: batch[k] for k in other_keys}
             with torch.no_grad():
-                y_hat_t = self.teacher(x).output
+                y_hat_t = self.teacher(x, **rest).output
             loss_kd = self.kd_criterion(
                 torch.log_softmax(y_hat_s / self.kd_temperature, dim=1),
                 torch.softmax(y_hat_t / self.kd_temperature, dim=1),
@@ -84,6 +86,10 @@ class SemanticSegmentationDistiller(L.LightningModule):
         self.log_dict(metrics, on_epoch=True, on_step=False)
         self.teacher.train_metrics.reset()
 
+        optimizer = self.trainer.optimizers[0]
+        current_lr = optimizer.param_groups[0]["lr"]
+        self.log("train/lr", current_lr, on_epoch=True, on_step=False)
+
     def on_validation_epoch_end(self):
         metrics = self.teacher.val_metrics.compute()
         self.log_dict(metrics, on_epoch=True, on_step=False)
@@ -95,4 +101,6 @@ class SemanticSegmentationDistiller(L.LightningModule):
         self.teacher.test_metrics[0].reset()
 
     def configure_optimizers(self):
-        return torch.optim.AdamW(self.parameters(), lr=0.0001)
+        optimizer = torch.optim.AdamW(self.parameters(), lr=1e-4)
+        scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
+        return [optimizer], [scheduler]
