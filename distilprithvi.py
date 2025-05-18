@@ -8,7 +8,19 @@ from lightning.pytorch.loggers import MLFlowLogger
 
 from terratorch.cli_tools import LightningInferenceModel
 from distillers import SemanticSegmentationDistiller
-from students import DeepLabV3MobileNetV3Large, LRASPPMobileNetV3Large
+from students import (
+    DeepLabV3_MobileNet_V3_Large,
+    DeepLabV3_ResNet50,
+    DeepLabV3_ResNet101,
+    LRASPP_MobileNet_V3_Large,
+)
+
+STUDENT_MODELS = {
+    "deeplabv3-mobilenet-v3-large": DeepLabV3_MobileNet_V3_Large,
+    "deeplabv3-resnet50": DeepLabV3_ResNet50,
+    "deeplabv3-resnet101": DeepLabV3_ResNet101,
+    "lraspp-mobilenet-v3-large": LRASPP_MobileNet_V3_Large,
+}
 
 
 def parse_args():
@@ -27,7 +39,7 @@ def parse_args():
     parser.add_argument(
         "--student-model",
         required=True,
-        choices=["deeplabv3", "lraspp"],
+        choices=STUDENT_MODELS.keys(),
         help="Student model type",
     )
     parser.add_argument(
@@ -74,19 +86,17 @@ def main():
     torch.set_float32_matmul_precision("medium")
 
     sys.argv = [sys.argv[0]]
-    inference_model = LightningInferenceModel.from_config(
+    config = LightningInferenceModel.from_config(
         args.teacher_config, args.teacher_checkpoint
     )
-    teacher = inference_model.model
-    datamodule = inference_model.datamodule
+    teacher = config.model
+    datamodule = config.datamodule
     datamodule.batch_size = args.batch_size
 
-    num_channels = len(teacher.hparams.model_args["backbone_bands"])
-    num_classes = teacher.hparams.model_args["num_classes"]
-    if args.student_model == "deeplabv3":
-        student = DeepLabV3MobileNetV3Large(num_channels, num_classes)
-    elif args.student_model == "lraspp":
-        student = LRASPPMobileNetV3Large(num_channels, num_classes)
+    student = STUDENT_MODELS[args.student_model](
+        num_channels=len(teacher.hparams.model_args["backbone_bands"]),
+        num_classes=teacher.hparams.model_args["num_classes"],
+    )
 
     distiller = SemanticSegmentationDistiller(
         teacher=teacher,
