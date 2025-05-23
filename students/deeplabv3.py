@@ -10,7 +10,7 @@ from torchvision.models.segmentation import (
 
 
 class DeepLabV3_MobileNet_V3_Large(nn.Module):
-    def __init__(self, num_channels, num_classes):
+    def __init__(self, num_channels: int, num_classes: int):
         super().__init__()
 
         self.model = deeplabv3_mobilenet_v3_large(
@@ -47,7 +47,7 @@ class DeepLabV3_MobileNet_V3_Large(nn.Module):
 
 
 class DeepLabV3_ResNet50(nn.Module):
-    def __init__(self, num_channels, num_classes):
+    def __init__(self, num_channels: int, num_classes: int):
         super().__init__()
 
         self.model = deeplabv3_resnet50(weights=DeepLabV3_ResNet50_Weights.DEFAULT)
@@ -82,7 +82,7 @@ class DeepLabV3_ResNet50(nn.Module):
 
 
 class DeepLabV3_ResNet101(nn.Module):
-    def __init__(self, num_channels, num_classes):
+    def __init__(self, num_channels: int, num_classes: int):
         super().__init__()
 
         self.model = deeplabv3_resnet101(weights=DeepLabV3_ResNet101_Weights.DEFAULT)

@@ -6,7 +6,7 @@ from torchvision.models.segmentation import (
 
 
 class LRASPP_MobileNet_V3_Large(nn.Module):
-    def __init__(self, num_channels, num_classes):
+    def __init__(self, num_channels: int, num_classes: int):
         super().__init__()
 
         self.model = lraspp_mobilenet_v3_large(
