@@ -18,7 +18,8 @@ from students import (
     LRASPP_MobileNet_V3_Large,
 )
 
-coloredlogs.install()
+logger = logging.getLogger("distilprithvi")
+coloredlogs.install(logger=logger)
 
 
 STUDENT_MODELS = {
@@ -46,21 +47,21 @@ def parse_args():
     train_parser.add_argument("--kd-temperature", type=float, default=2.0, help="Knowledge distillation temperature")
     train_parser.add_argument("--kd-weight", type=float, default=0.75, help="Knowledge distillation loss weight")
     train_parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate for the optimizer")
-    train_parser.add_argument("--metrics-output", help="Path to save test metrics as CSV")
+    train_parser.add_argument("--test-results", help="Path to save test results as CSV")
 
     test_parser = subparsers.add_parser("test-teacher", help="Test the teacher model")
     test_parser.add_argument("--teacher-config", required=True, help="Path to teacher config YAML")
     test_parser.add_argument("--teacher-checkpoint", required=True, help="Path to teacher model checkpoint")
     test_parser.add_argument("--batch-size", type=int, default=1, help="Batch size for testing")
-    test_parser.add_argument("--metrics-output", help="Path to save test metrics as CSV")
+    test_parser.add_argument("--test-results", help="Path to save test results as CSV")
     # fmt: on
 
     return parser.parse_args()
 
 
-def save_metrics(name, metrics, output_path):
-    """Save metrics to a CSV file."""
-    df = pd.DataFrame(metrics)
+def save_test_results(name, results, output_path):
+    """Save test results to a CSV file."""
+    df = pd.DataFrame(results)
     df.insert(0, "name", name)
     df.to_csv(
         output_path,
@@ -68,12 +69,12 @@ def save_metrics(name, metrics, output_path):
         header=not pd.io.common.file_exists(output_path),
         index=False,
     )
-    logging.info("Metrics saved to %s", output_path)
+    logger.info("Test results saved to %s", output_path)
 
 
 def run_train_student(args):
     """Train the student model."""
-    logging.info("Initializing the teacher model...")
+    logger.info("Initializing the teacher model...")
     config = LightningInferenceModel.from_config(
         args.teacher_config, args.teacher_checkpoint
     )
@@ -108,19 +109,19 @@ def run_train_student(args):
         log_every_n_steps=1,
     )
 
-    logging.info("Starting the training process...")
+    logger.info("Starting the training process...")
     trainer.fit(distiller, datamodule)
 
-    logging.info("Testing the model...")
-    metrics = trainer.test(distiller, datamodule)
+    logger.info("Testing the model...")
+    results = trainer.test(distiller, datamodule)
 
-    if args.metrics_output:
-        save_metrics(args.run_name, metrics, args.metrics_output)
+    if args.test_results:
+        save_test_results(args.run_name, results, args.test_results)
 
 
 def run_test_teacher(args):
     """Test the teacher model."""
-    logging.info("Initializing the teacher model...")
+    logger.info("Initializing the teacher model...")
     config = LightningInferenceModel.from_config(
         args.teacher_config, args.teacher_checkpoint
     )
@@ -137,11 +138,11 @@ def run_test_teacher(args):
 
     trainer = Trainer(logger=False)
 
-    logging.info("Testing the teacher model...")
-    metrics = trainer.test(distiller, datamodule)
+    logger.info("Testing the teacher model...")
+    results = trainer.test(distiller, datamodule)
 
-    if args.metrics_output:
-        save_metrics(args.teacher_checkpoint, metrics, args.metrics_output)
+    if args.test_results:
+        save_test_results(args.teacher_checkpoint, results, args.test_results)
 
 
 def main():
@@ -151,7 +152,7 @@ def main():
     sys.argv = [sys.argv[0]]
     torch.set_float32_matmul_precision("medium")
 
-    logging.info("Running in %s mode", args.command)
+    logger.info("Running in %s mode", args.command)
     if args.command == "train-student":
         run_train_student(args)
     elif args.command == "test-teacher":

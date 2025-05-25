@@ -1,1 +1,2 @@
-terratorch @ git+https://github.com/IBM/terratorch.git@f6cf6f649408032fe97db45fc5ada9313d2da325
+coloredlogs==15.0.1
+terratorch==1.0.2
