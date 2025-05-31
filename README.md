@@ -31,3 +31,6 @@ python distilprithvi.py test-teacher \
   --test-results output.csv
 
 ```
+
+## TODO:
+* Fix epochs logging in MLFLOW
