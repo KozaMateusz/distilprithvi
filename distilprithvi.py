@@ -47,6 +47,7 @@ def parse_args():
     train_parser.add_argument("--kd-temperature", type=float, default=2.0, help="Knowledge distillation temperature")
     train_parser.add_argument("--kd-weight", type=float, default=0.75, help="Knowledge distillation loss weight")
     train_parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate for the optimizer")
+    train_parser.add_argument("--kd-stop-epoch", type=int, default=None, help="Epoch to stop knowledge distillation (optional)")
     train_parser.add_argument("--test-results", help="Path to save test results as CSV")
 
     test_parser = subparsers.add_parser("test-teacher", help="Test the teacher model")
@@ -96,6 +97,7 @@ def run_train_student(args):
         kd_temperature=args.kd_temperature,
         kd_weight=args.kd_weight,
         lr=args.lr,
+        kd_stop_epoch=args.kd_stop_epoch,
     )
 
     mlf_logger = MLFlowLogger(

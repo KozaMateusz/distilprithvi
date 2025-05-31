@@ -27,6 +27,7 @@ class SemanticSegmentationDistiller(L.LightningModule):
         lr: float = 1e-4,
         teacher: Optional[TerraTorchTask] = None,
         student: Optional[nn.Module] = None,
+        kd_stop_epoch: Optional[int] = None,
     ):
         super().__init__()
 
@@ -35,6 +36,7 @@ class SemanticSegmentationDistiller(L.LightningModule):
         self.kd_weight = kd_weight
         self.kd_temperature = kd_temperature
         self.lr = lr
+        self.kd_stop_epoch = kd_stop_epoch
 
         self._validate_args()
 
@@ -130,24 +132,38 @@ class SemanticSegmentationDistiller(L.LightningModule):
         y_hat_s = self(x, **rest)
         loss_target = self.criterion(y_hat_s, y)
 
-        if self.kd_weight == 0:
-            loss = loss_target
-        else:
+        use_kd = (
+            self.kd_weight > 0
+            and self.teacher is not None
+            and (self.kd_stop_epoch is None or self.current_epoch < self.kd_stop_epoch)
+        )
+
+        if use_kd:
             y_hat_t = self.teacher(x, **rest).output
             loss_kd = self.kd_criterion(
                 torch.log_softmax(y_hat_s / self.kd_temperature, dim=1),
                 torch.softmax(y_hat_t / self.kd_temperature, dim=1),
             ) * (self.kd_temperature**2)
-            self.log_dict(
-                {"train/loss_target": loss_target, "train/loss_kd": loss_kd},
+            self.log(
+                "train/loss_kd",
+                loss_kd,
                 on_epoch=True,
                 on_step=False,
                 batch_size=x.shape[0],
             )
             loss = self.kd_weight * loss_kd + (1 - self.kd_weight) * loss_target
+        else:
+            loss = loss_target
 
-        self.log(
-            "train/loss", loss, on_epoch=True, on_step=False, batch_size=x.shape[0]
+        self.log_dict(
+            {
+                "train/loss_target": loss_target,
+                "train/loss": loss,
+                "train/use_kd": use_kd,
+            },
+            on_epoch=True,
+            on_step=False,
+            batch_size=x.shape[0],
         )
         self.train_metrics.update(y_hat_s.argmax(dim=1), y)
         return loss
