@@ -30,6 +30,7 @@ class SemanticSegmentationDistiller(L.LightningModule):
         kd_stop_epoch: Optional[int] = None,
     ):
         super().__init__()
+        self.save_hyperparameters(ignore=["teacher", "student"])
 
         self.teacher = teacher
         self.student = student
@@ -37,6 +38,7 @@ class SemanticSegmentationDistiller(L.LightningModule):
         self.kd_temperature = kd_temperature
         self.lr = lr
         self.kd_stop_epoch = kd_stop_epoch
+        self.num_classes = num_classes
 
         self._validate_args()
 
@@ -137,12 +139,17 @@ class SemanticSegmentationDistiller(L.LightningModule):
             and self.teacher is not None
             and (self.kd_stop_epoch is None or self.current_epoch < self.kd_stop_epoch)
         )
-
         if use_kd:
             y_hat_t = self.teacher(x, **rest).output
+            student_log_probs = torch.log_softmax(
+                y_hat_s.reshape(-1, self.num_classes) / self.kd_temperature, dim=1
+            )
+            teacher_probs = torch.softmax(
+                y_hat_t.reshape(-1, self.num_classes) / self.kd_temperature, dim=1
+            )
             loss_kd = self.kd_criterion(
-                torch.log_softmax(y_hat_s / self.kd_temperature, dim=1),
-                torch.softmax(y_hat_t / self.kd_temperature, dim=1),
+                student_log_probs,
+                teacher_probs,
             ) * (self.kd_temperature**2)
             self.log(
                 "train/loss_kd",
@@ -215,5 +222,4 @@ class SemanticSegmentationDistiller(L.LightningModule):
     def configure_optimizers(self):
         """Configure the optimizer and learning rate scheduler."""
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr)
-        scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.99)
-        return [optimizer], [scheduler]
+        return optimizer
