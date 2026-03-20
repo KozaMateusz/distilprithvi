@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from torch.optim.lr_scheduler import CosineAnnealingLR
 import lightning as L
 from torchmetrics import ClasswiseWrapper, MetricCollection
 from torchmetrics.classification import (
@@ -28,6 +29,7 @@ class SemanticSegmentationDistiller(L.LightningModule):
         teacher: Optional[TerraTorchTask] = None,
         student: Optional[nn.Module] = None,
         kd_stop_epoch: Optional[int] = None,
+        max_epochs: Optional[int] = None,
     ):
         super().__init__()
         self.save_hyperparameters(ignore=["teacher", "student"])
@@ -39,6 +41,13 @@ class SemanticSegmentationDistiller(L.LightningModule):
         self.lr = lr
         self.kd_stop_epoch = kd_stop_epoch
         self.num_classes = num_classes
+        self.max_epochs = max_epochs
+
+        # Precompute constants used every training step
+        self._kd_temperature_sq = kd_temperature**2
+        self._ce_weight = 1.0 - kd_weight
+        # Cache for extra batch keys (computed once on first batch)
+        self._batch_extra_keys: Optional[set] = None
 
         self._validate_args()
 
@@ -117,6 +126,15 @@ class SemanticSegmentationDistiller(L.LightningModule):
         )
         return metrics
 
+    def _unpack_batch(self, batch):
+        """Unpack image, mask, and any extra keys from a batch dict."""
+        x = batch["image"]
+        y = batch["mask"].squeeze(1)
+        if self._batch_extra_keys is None:
+            self._batch_extra_keys = batch.keys() - {"image", "mask", "filename"}
+        rest = {k: batch[k] for k in self._batch_extra_keys}
+        return x, y, rest
+
     def forward(self, x: torch.Tensor, **kwargs):
         """Forward pass through the model."""
         if self.student is None:
@@ -126,10 +144,7 @@ class SemanticSegmentationDistiller(L.LightningModule):
 
     def training_step(self, batch):
         """Training step for the distillation process."""
-        x = batch["image"]
-        y = batch["mask"].squeeze(1)
-        other_keys = batch.keys() - {"image", "mask", "filename"}
-        rest = {k: batch[k] for k in other_keys}
+        x, y, rest = self._unpack_batch(batch)
 
         y_hat_s = self(x, **rest)
         loss_target = self.criterion(y_hat_s, y)
@@ -140,7 +155,8 @@ class SemanticSegmentationDistiller(L.LightningModule):
             and (self.kd_stop_epoch is None or self.current_epoch < self.kd_stop_epoch)
         )
         if use_kd:
-            y_hat_t = self.teacher(x, **rest).output
+            with torch.no_grad():
+                y_hat_t = self.teacher(x, **rest).output
             student_log_probs = torch.log_softmax(
                 y_hat_s.reshape(-1, self.num_classes) / self.kd_temperature, dim=1
             )
@@ -150,7 +166,7 @@ class SemanticSegmentationDistiller(L.LightningModule):
             loss_kd = self.kd_criterion(
                 student_log_probs,
                 teacher_probs,
-            ) * (self.kd_temperature**2)
+            ) * self._kd_temperature_sq
             self.log(
                 "train/loss_kd",
                 loss_kd,
@@ -158,7 +174,7 @@ class SemanticSegmentationDistiller(L.LightningModule):
                 on_step=False,
                 batch_size=x.shape[0],
             )
-            loss = self.kd_weight * loss_kd + (1 - self.kd_weight) * loss_target
+            loss = self.kd_weight * loss_kd + self._ce_weight * loss_target
         else:
             loss = loss_target
 
@@ -177,10 +193,7 @@ class SemanticSegmentationDistiller(L.LightningModule):
 
     def validation_step(self, batch):
         """Validation step for the distillation process."""
-        x = batch["image"]
-        y = batch["mask"].squeeze(1)
-        other_keys = batch.keys() - {"image", "mask", "filename"}
-        rest = {k: batch[k] for k in other_keys}
+        x, y, rest = self._unpack_batch(batch)
         y_hat_s = self(x, **rest)
         loss = self.criterion(y_hat_s, y)
         self.val_metrics.update(y_hat_s.argmax(dim=1), y)
@@ -188,10 +201,7 @@ class SemanticSegmentationDistiller(L.LightningModule):
 
     def test_step(self, batch):
         """Test step for the distillation process."""
-        x = batch["image"]
-        y = batch["mask"].squeeze(1)
-        other_keys = batch.keys() - {"image", "mask", "filename"}
-        rest = {k: batch[k] for k in other_keys}
+        x, y, rest = self._unpack_batch(batch)
         y_hat_s = self(x, **rest)
         loss = self.criterion(y_hat_s, y)
         self.test_metrics.update(y_hat_s.argmax(dim=1), y)
@@ -222,4 +232,13 @@ class SemanticSegmentationDistiller(L.LightningModule):
     def configure_optimizers(self):
         """Configure the optimizer and learning rate scheduler."""
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr)
-        return optimizer
+        t_max = self.max_epochs if self.max_epochs is not None else self.trainer.max_epochs
+        scheduler = CosineAnnealingLR(
+            optimizer,
+            T_max=t_max,
+            eta_min=self.lr * 1e-2,
+        )
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {"scheduler": scheduler, "interval": "epoch"},
+        }
